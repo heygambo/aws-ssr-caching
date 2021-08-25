@@ -3,7 +3,6 @@ ENV WORKDIR /app
 RUN mkdir ${WORKDIR}
 WORKDIR ${WORKDIR}
 COPY . ${WORKDIR}
-RUN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 RUN yarn
 RUN yarn build
 RUN rm -rf node_modules
@@ -14,5 +13,6 @@ ENV WORKDIR /app
 ENV DOCKER true
 WORKDIR ${WORKDIR}
 COPY --from=builder ${WORKDIR} ${WORKDIR}
+RUN apt-get -y update && apt-get -y install curl && apt-get -y upgrade && apt-get -y autoremove && apt-get -y clean
 RUN chmod +x entrypoint.sh
 ENTRYPOINT /app/entrypoint.sh
