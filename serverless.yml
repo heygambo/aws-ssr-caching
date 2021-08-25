@@ -1,0 +1,68 @@
+service: aws-ssr-caching
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+
+
+resources:
+  Conditions:
+    ProdCondition:
+      Fn::Equals:
+        - ${opt:stage}
+        - prod
+
+  Resources:
+    # - cluster
+    # - service
+    FargateTasksCluster:
+      Type: AWS::ECS::Cluster
+      Properties:
+        CapacityProviders: [ FARGATE ]
+        ClusterName: ${self:service}-ecs-${self:provider.stage}
+
+    FargateTasksLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/ecs/${self:service}-fargate-${self:provider.stage}
+        RetentionInDays: 30
+
+    FargateTaskRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${self:service}-${self:provider.stage}-fargate-sync-task-role
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        AssumeRolePolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Principal:
+                Service:
+                  - ecs-tasks.amazonaws.com
+        Policies:
+          - PolicyName: '${self:service}-${self:provider.stage}-fargate-sync-policy'
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:Scan
+                  Resource: '*'
+                - Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                    - sqs:SendMessageBatch
+                  Resource: '*'
+                - Effect: Allow
+                  Action:
+                    - ecs:RunTask
+                  Resource: '*'
+
+    FargateTasksEcrRepository:
+      Type: AWS::ECR::Repository
+      Properties:
+        RepositoryName: ${self:service}-ecr-${self:custom.stage}
